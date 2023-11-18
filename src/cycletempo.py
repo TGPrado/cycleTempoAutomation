@@ -82,3 +82,47 @@ def parseApparatus(appDataContent):
         oldApparatus = apNumber
     
     return appDataDict
+
+def checkParams(newParams, apparatus):
+    oldParams = apparatus["params"]
+    for param in newParams:
+        if param not in oldParams:
+            raise Exception(f"Invalid param {param} of {apparatus['apName']}")
+
+
+def getLine(apparatus, param):
+    lines = apparatus["line"]
+    for line in lines:
+        if param in line:
+            return line
+
+
+def replaceParamsValue(arq, newParams, apparatus):
+    for param in newParams:
+        oldLine = getLine(apparatus, param)
+        oldValue = apparatus["params"][param]
+        
+        newValue = newParams[param]
+        newLine = oldLine.replace(f"{param}={oldValue}", f"{param}={newValue}")
+        if newLine == oldLine:
+            newLine = oldLine.replace(f"{param}=  {oldValue}", f"{param}=  {newValue}")
+        
+        arq = arq.replace(oldLine, newLine)
+    
+    return arq
+
+def changeDataParams(config, appDataDict, paramsValues):
+    arq = open(config["inFilePath"])
+    arq = arq.read()
+    for apNumber in paramsValues:
+        if  apNumber not in appDataDict:
+            raise Exception(f"Invalid apNumber: {apNumber}")
+
+        apparatus = appDataDict[apNumber]
+        newParams = paramsValues[apNumber]
+        checkParams(newParams, apparatus)
+        arq = replaceParamsValue(arq, newParams, apparatus)
+    
+    oldArq = open(config["inFilePath"], "w")
+    oldArq.write(arq)
+    oldArq.close()
