@@ -1,4 +1,5 @@
 from src.cycletempo import *
 
 config = getConfigs()
-appDatContent = getAppDataContent(config)
+appDataContent = getAppDataContent(config)
+appDataDict = parseApparatus(appDataContent)
