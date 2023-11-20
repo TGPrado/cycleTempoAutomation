@@ -1,4 +1,7 @@
 import json
+import os
+from time import sleep
+from subprocess import Popen
 
 def getConfigs():
     arq = open("utils/config.json")
@@ -6,7 +9,7 @@ def getConfigs():
     return arq
 
 def getAppDataContent(config):
-    inFile = open(config["inFilePath"])
+    inFile = open(config["inFilePath"] + "INFILE1")
     lines = inFile.readlines()
     appDataContent = []
     lineWithAPData = 0
@@ -112,7 +115,7 @@ def replaceParamsValue(arq, newParams, apparatus):
     return arq
 
 def changeDataParams(config, appDataDict, paramsValues):
-    arq = open(config["inFilePath"])
+    arq = open(config["inFilePath"] + "INFILE1")
     arq = arq.read()
     for apNumber in paramsValues:
         if  apNumber not in appDataDict:
@@ -123,6 +126,26 @@ def changeDataParams(config, appDataDict, paramsValues):
         checkParams(newParams, apparatus)
         arq = replaceParamsValue(arq, newParams, apparatus)
     
-    oldArq = open(config["inFilePath"], "w")
+    oldArq = open(config["inFilePath"] + "INFILE1", "w")
     oldArq.write(arq)
     oldArq.close()
+
+def removeOutputFiles(config):
+    path = config["inFilePath"]
+    files = os.listdir(path)
+    for file in files:
+        if "OUTFIL" in file:
+            os.remove(path + file)
+
+def executeWinTempo(config):
+    os.chdir(config["inFilePath"])
+    process = Popen(config["winTempoPath"])
+    files = os.listdir(config["inFilePath"])
+    cont = 0.05
+    while "OUTFIL4" not in files:
+        sleep(cont)
+        files = os.listdir(config["inFilePath"])
+        cont += 0.05
+    
+    process.terminate()
+
