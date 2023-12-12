@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from time import sleep
 from subprocess import Popen
 
@@ -147,5 +148,102 @@ def executeWinTempo(config):
         files = os.listdir(config["inFilePath"])
         cont += 0.05
     
+    sleep(cont)
     process.terminate()
 
+def apparatusParser(apparatusData):
+    apparatusDict = {}
+
+    for apparatus in apparatusData:
+        data = apparatus.split(",")
+        key = int(data[0])
+        appType = int(data[2])
+        content = {
+            "AppName": data[1],
+            "AppType": appType,
+            "Energy Loss (enthalpy) [kW]":float(data[3]),
+            "Energy Loss (HHV) [kW]":float(data[4]),
+            "Energy Loss (LHV) [kW]":float(data[5]),
+            "Energy": 0
+        }
+        if len(data) == 18 or appType == 8:
+            content["Energy"] = float(data[9])
+
+        apparatusDict[key] = content
+
+    return apparatusDict
+
+def getApparatusResult(lines):
+    apparatusData = []
+    for line in lines:
+        result = re.search("^ {2,6}\d{1,2},[A-Z][a-z]{1,10}", line)
+        if result:
+            apparatusData.append(line)
+    return apparatusParser(apparatusData)
+
+def getGeneratorsResult(lines):
+    index = 0
+    generatorDict = {}
+    for line in lines:
+        result = re.search("^\d", line)
+        if result:
+            index = lines.index(line)
+            break
+    
+    while True:
+        index -= 1
+        line = lines[index].split(",")
+        if len(line) == 2:
+            return generatorDict
+        
+        key = int(line[0])
+        content = {
+            "Energy": float(line[-1])
+        }
+        generatorDict[key] = content
+
+
+def getTotalResults(generatorsDict, apparatusDict):
+    absorvedPower = 0
+    auxPowerConsumption = 0
+    for apparatus in apparatusDict:
+        value = apparatusDict[apparatus]
+
+        if value["AppType"] == 8:
+            auxPowerConsumption += value["Energy"]
+            continue
+
+        absorvedPower += value["Energy"]
+    
+    deliveredGrossPower = 0
+    for generator in generatorsDict:
+        value = generatorsDict[generator]
+        deliveredGrossPower += value["Energy"]
+
+    deliveredNetPower = deliveredGrossPower + auxPowerConsumption
+    efficiencyGross = deliveredGrossPower/absorvedPower * 100
+    efficiencyNet = deliveredNetPower/absorvedPower * 100
+    totalDict = {
+        "absorverd Power": absorvedPower,
+        "delivered Gross Power": deliveredGrossPower,
+        "aux Power Consumption": auxPowerConsumption,
+        "delivered Net Power": deliveredNetPower,
+        "efficency Gross": efficiencyGross,
+        "efficiency Net": efficiencyNet
+    }
+
+    return totalDict
+
+def getResultsFromOutfile(config):
+    path = config["inFilePath"]
+    lines = open(f"{path}OUTFIL4").readlines()
+
+    apparatusDict = getApparatusResult(lines)
+    generatorsDict = getGeneratorsResult(lines)
+    totalDict = getTotalResults(generatorsDict, apparatusDict)
+    results = {
+        "apparatus": apparatusDict,
+        "generators": generatorsDict,
+        "totals": totalDict
+    }
+    return results
